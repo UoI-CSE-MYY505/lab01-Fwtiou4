@@ -1,86 +1,56 @@
-# Introduction to Risc-V assembly programming using Ripes (https://github.com/mortbopet/Ripes)
-# for MYY505 - Computer Architecture
-# Aris Efthymiou
-# Department of Computer Engineering, University of Ioannina
+# Converts a number to ASCII in hexadecimal
+# 
+# Written by Aris Efthymiou, 5/02/2015
+# Based on hex.s program from U. of Manchester for the ARM ISA
 
-# These are comments! Anything up to the end of line is ignored
+        .data
+number:
+        .word 0xDEADC0DE 
+outmsg:
+        .zero 9  # Leave space for 8 hex digits plus '\0'
 
-        .data     # An assembler **directive**. What follows is data 
-                  #  so it is stored in the data memory section (0x10000000)
+        .globl main
 
-matric: # Words ending with ':' are **labels**
-        # The common convention is to write labels starting from the leftmost column.
-        # Try to keep label names short
-        .word 5103  # This directive reserves enough space for a word in memory
-                  #  and initializes it with the specific value.
-matricplus1:
-        .word 0   
+        .text
+main:   
+        la  a0, number
+        lw  s4, 0(a0)  # Load the number in s0
 
-var1:
-        .word 1
+        la   a0, outmsg # Get address of output string
 
-array:
-        .word 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 # Array of 10 words
-                  # A comma-separated list of numbers can be used after .word
-                  # and similar directives. 
-                  # See the memory tab in Ripes to see how they are stored
+        # set up the loop counter variable
+        li   t0, 8      # 8 hex digits in a 32-bit number
 
-var2:
-        .byte -1
+loop:   # Main loop ----------
+        srli t1, s2, 28  # get leftmost digit by shifting it
+                         # to the 4 least significant bits of t1
 
-str1:
-        .string "This is a string" # The end of the string is marked by a
-                  # 0 - valued byte, which is represented as '\0'. 
-                  # Null-terminated string is the usual term for this.
-                  # See how it looks in the memory tab of Ripes
-        
-        .text     # Another assembler direcrive. what follows is code
-                  #  so it is stored in the text memory section (0x00000000)
-     
-        
-        # Instructions are indented a few spaces to the right
-        #   (so that we can see the labels more clearly)
-        # Instruction operands are indented a few spaces, so that the
-        #    instruction type is more visible.
-      
-        la         a0, matric      # a0 gets the **address** of matric
-                                   # Note: this is address **not** value of matric
-        la         a1, var1        # a1 gets address of var1
-        la         a2, array       # get address of array into a2
-                                   # This is called the **base** of the array
-        la         a3, var2        # Get address of var2
+        # The following instructions convert the number to a char
+        slti t2, t1,   10  # t2 is set to 1 if t1 < 10	
+        beq  t2, zero, over10
+        addi t1, t1,   48 # ASCII for '0' is 48
+        j    save_c
+over10:
+        addi t1, t1, 55 # convert to ASCII for A-F
+                        # ASCII code for 'A' is 65
+                        # Use 55 because t1 is over 10
 
-prog:   # Labels in code are used for control flow: if/then/else, loops, etc.
-        #  In this case the label is required for the course's automated
-        #  test.
-        # Labels do not take up space in memory. They are only used by the assembler
+save_c: # store one hex digit (in t1)
+        sb   t1, 0(a0)
+        addi a0, a0, 1
 
-        lw         s0, 0(a0)       # Get value 100 into register s0. li - load immediate
-        
-        lw         s1, 0(a1)       # s1 gets the value of var1. a1 has the address of var1
-        add        s1, s1,   s0    # s1 = var1 + s0
-        sw         s1, 4(a0)       # matricplus1 = var1 + s0
-        
-        sw         s0, 0xc(a2)     # Store s0 to the 4th element of array
-                                   # Note the use of offset (0xc = 12 = 3*4)
-                                   # addresses of array elements (32bit words each):
-                                   # array[0]  - array + 0
-                                   # array[1]  - array + 4
-                                   # array[2]  - array + 8
-                                   # array[3]  - array + 12
-                                     
-        addi       t1, a2,   0x10  # Note: address arithmetic.
-                                   #  Calculates address of 5th element of array
-        sw         t1, 0(a1)       # var1 = address of 5th element of array 
-                                   # Note: we can store addresses 
-                                   #   in memory just like we do with real data!
-        
-        lb         s2, 0(a3)       # Get value of var2, sign-extended to 32 bits, to s2
-        lbu        s3, 0(a3)       # Get value of var2, zero-extended to 32 bits, to s3
-        
-exit: 
-        addi       a7, zero, 10   # system service 10 is exit
-        ecall                     # we are outa here.
-        
-###############################################################################
+        # Prepare for next iteration
+        slli s0, s0, 4   # Drop current leftmost digit
+        addi t0, t0, -1  # Update loop counter
+        bne  t0, zero, loop # Still not 0?, go to loop
+        #Â End of loop --------
+
+		# store special end of string (null) char
+        sb   zero, 0(a0)
+
+        # end the program
+        addi a7, zero, 10
+        ecall
+
+
 
